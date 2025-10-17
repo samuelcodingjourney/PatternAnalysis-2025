@@ -164,9 +164,9 @@ def dice_coefficient(predictions, targets, num_classes=4):
         if union == 0:
             dice = 1.0 if intersection == 0 else 0.0
         else:
-            dice = (2. * intersection) / union
+            dice = ((2. * intersection) / union).item()  # Always convert to float
         
-        dice_scores.append(dice.item())
+        dice_scores.append(dice)
     
     return dice_scores
 
