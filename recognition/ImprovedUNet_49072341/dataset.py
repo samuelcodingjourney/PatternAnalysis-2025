@@ -5,7 +5,7 @@ import nibabel as nib
 import torch
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
-
+import torch.nn.functional as F
 
 class HipMRIDataset(Dataset):
     """
@@ -77,8 +77,14 @@ class HipMRIDataset(Dataset):
         img = np.expand_dims(img, axis=0)
     
         # Convert to torch tensors
-        img = torch.from_numpy(img)
+        img = torch.from_numpy(img).float()
         mask = torch.from_numpy(mask).long()
+    
+        # Resize to fixed size (256, 128) if needed
+        target_size = (256, 128)
+        if img.shape[1:] != target_size:
+            img = F.interpolate(img.unsqueeze(0), size=target_size, mode='bilinear', align_corners=False).squeeze(0)
+            mask = F.interpolate(mask.unsqueeze(0).unsqueeze(0).float(), size=target_size, mode='nearest').squeeze(0).squeeze(0).long()
     
         # Apply transforms if any
         if self.transform:
