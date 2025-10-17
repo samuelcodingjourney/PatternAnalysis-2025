@@ -50,37 +50,41 @@ class HipMRIDataset(Dataset):
         return len(self.img_files)
     
     def __getitem__(self, idx):
-        # Load image
-        img_path = self.img_files[idx]
-        img_nifti = nib.load(img_path)
-        img = img_nifti.get_fdata().astype(np.float32)
-        
-        # Get corresponding mask filename
-        img_filename = os.path.basename(img_path)
-        mask_filename = img_filename.replace('case_', 'seg_')
-        mask_path = os.path.join(self.mask_dir, mask_filename)
-        
-        # Load mask
-        mask_nifti = nib.load(mask_path)
-        mask = mask_nifti.get_fdata().astype(np.int64)
-        
-        # Normalize image if requested
-        if self.normalize:
-            # Z-score normalization
-            img = (img - img.mean()) / (img.std() + 1e-8)
-        
-        # Add channel dimension: (H, W) -> (1, H, W)
-        img = np.expand_dims(img, axis=0)
-        
-        # Convert to torch tensors
-        img = torch.from_numpy(img)
-        mask = torch.from_numpy(mask).long()
-        
-        # Apply transforms if any
-        if self.transform:
-            img, mask = self.transform(img, mask)
-        
-        return img, mask
+    # Load image
+    img_path = self.img_files[idx]
+    img_nifti = nib.load(img_path)
+    img = img_nifti.get_fdata().astype(np.float32)
+    
+    # Get corresponding mask filename
+    img_filename = os.path.basename(img_path)
+    mask_filename = img_filename.replace('case_', 'seg_')
+    mask_path = os.path.join(self.mask_dir, mask_filename)
+    
+    # Load mask
+    mask_nifti = nib.load(mask_path)
+    mask = mask_nifti.get_fdata()
+    
+    # Round and handle labels > 3
+    mask = np.round(mask).astype(np.int64)
+    mask[mask > 3] = 0  # Map labels 4, 5 to background
+    
+    # Normalize image if requested
+    if self.normalize:
+        # Z-score normalization
+        img = (img - img.mean()) / (img.std() + 1e-8)
+    
+    # Add channel dimension: (H, W) -> (1, H, W)
+    img = np.expand_dims(img, axis=0)
+    
+    # Convert to torch tensors
+    img = torch.from_numpy(img)
+    mask = torch.from_numpy(mask).long()
+    
+    # Apply transforms if any
+    if self.transform:
+        img, mask = self.transform(img, mask)
+    
+    return img, mask
 
 
 def get_dataloaders(data_path, batch_size=8, num_workers=4):
