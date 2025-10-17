@@ -61,7 +61,7 @@ class DecoderBlock(nn.Module):
 
 class ImprovedUNet(nn.Module):
     
-    def __init__(self, in_channels=1, num_classes=4, base_features=32):
+    def __init__(self, in_channels=1, num_classes=6, base_features=32):
         super(ImprovedUNet, self).__init__()
         
         # Encoder path
@@ -146,7 +146,7 @@ class DiceLoss(nn.Module):
         return dice_loss
 
 
-def dice_coefficient(predictions, targets, num_classes=4):
+def dice_coefficient(predictions, targets, num_classes=6):
     """
     Calculate Dice coefficient for evaluation.
     Returns per-class Dice scores.
@@ -173,7 +173,7 @@ def dice_coefficient(predictions, targets, num_classes=4):
 
 if __name__ == "__main__":
     # Test the model
-    model = ImprovedUNet(in_channels=1, num_classes=4, base_features=32)
+    model = ImprovedUNet(in_channels=1, num_classes=6, base_features=32)
     
     # Count parameters
     total_params = sum(p.numel() for p in model.parameters())
@@ -186,7 +186,7 @@ if __name__ == "__main__":
     print(f"Output shape: {output.shape}")
     
     # Test loss
-    targets = torch.randint(0, 4, (2, 256, 128))
+    targets = torch.randint(0, 6, (2, 256, 128))
     criterion = DiceLoss()
     loss = criterion(output, targets)
     print(f"Dice loss: {loss.item():.4f}")

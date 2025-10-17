@@ -13,7 +13,7 @@ def load_model(checkpoint_path, device):
     """
     Load trained model from checkpoint.
     """
-    model = ImprovedUNet(in_channels=1, num_classes=4, base_features=32)
+    model = ImprovedUNet(in_channels=1, num_classes=6, base_features=32)
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(device)
@@ -29,7 +29,7 @@ def evaluate_test_set(model, test_loader, device):
     Evaluate model on test set.
     """
     model.eval()
-    dice_scores_per_class = [[] for _ in range(4)]
+    dice_scores_per_class = [[] for _ in range(6)]
     
     all_predictions = []
     all_targets = []
@@ -46,12 +46,12 @@ def evaluate_test_set(model, test_loader, device):
             all_predictions.append(predictions.cpu())
             all_targets.append(masks.cpu())
             # Calculate dice scores
-            dice_scores = dice_coefficient(outputs, masks, num_classes=4)
+            dice_scores = dice_coefficient(outputs, masks, num_classes=6)
             for i, score in enumerate(dice_scores):
                 dice_scores_per_class[i].append(score)
             
             pbar.set_postfix({
-                'dice_prostate': f'{dice_scores[3]:.4f}'
+                'dice_min': f'{min(dice_scores):.4f}'
             })
     
     # Calculate mean dice scores
@@ -94,20 +94,22 @@ def visualize_predictions(model, test_loader, device, num_samples=5, save_path='
     fig, axes = plt.subplots(num_samples, 3, figsize=(12, 4*num_samples))
     
     class_colors = {
-        0: [0, 0, 0],      # Background - Black
-        1: [1, 0, 0],      # Class 1 - Red
-        2: [0, 1, 0],      # Class 2 - Green
-        3: [0, 0, 1],      # Prostate - Blue
+        0: [0, 0, 0],        # Class 0 - Black
+        1: [1, 0, 0],        # Class 1 - Red
+        2: [0, 1, 0],        # Class 2 - Green
+        3: [0, 1, 1],        # Class 3 - Cyan
+        4: [1, 1, 0],        # Class 4 - Yellow
+        5: [0, 0, 1],        # Class 5 - Blue
     }
     
     for i in range(num_samples):
-        # Plot Image
+        # Image
         img = images_all[i, 0].numpy()
         axes[i, 0].imshow(img, cmap='gray')
         axes[i, 0].set_title('Input Image')
         axes[i, 0].axis('off')
         
-        # Plot Ground truth
+        # Ground truth
         mask = masks_all[i].numpy()
         mask_colored = np.zeros((*mask.shape, 3))
         for class_idx, color in class_colors.items():
@@ -116,7 +118,7 @@ def visualize_predictions(model, test_loader, device, num_samples=5, save_path='
         axes[i, 1].set_title('Ground Truth')
         axes[i, 1].axis('off')
         
-        # Plot Prediction
+        # Prediction
         pred = preds_all[i].numpy()
         pred_colored = np.zeros((*pred.shape, 3))
         for class_idx, color in class_colors.items():
@@ -156,16 +158,16 @@ def main():
     print("\n" + "="*60)
     print("TEST SET RESULTS")
     print("="*60)
-    class_names = ['Background', 'Class 1', 'Class 2', 'Prostate']
+    class_names = ['Class 0', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5']
     for i, name in enumerate(class_names):
         print(f"{name:15s}: Dice = {mean_dice[i]:.4f} ± {std_dice[i]:.4f}")
     print("="*60)
-    print(f"\n{'PROSTATE DICE':15s}: {mean_dice[3]:.4f} (Requirement: ≥ 0.75)")
+    print(f"\n{'MIN DICE (ALL)':15s}: {min(mean_dice):.4f} (Requirement: ≥ 0.75)")
     
-    if mean_dice[3] >= 0.75:
-        print("PASSED - Prostate Dice meets requirement!")
+    if min(mean_dice) >= 0.75:
+        print("PASSED - All 6 classes meet requirement!")
     else:
-        print("FAILED - Prostate Dice below requirement")
+        print("FAILED - Some classes below requirement")
     print("="*60)
     
     # Visualize predictions

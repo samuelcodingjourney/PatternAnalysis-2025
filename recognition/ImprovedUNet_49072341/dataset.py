@@ -64,9 +64,9 @@ class HipMRIDataset(Dataset):
         mask_nifti = nib.load(mask_path)
         mask = mask_nifti.get_fdata()
     
-        # Round and handle labels > 3
+        # Round to nearest integer and clip to valid range
         mask = np.round(mask).astype(np.int64)
-        mask[mask > 3] = 0  # Map labels 4, 5 to background
+        mask[mask > 3] = 0  # 6 classes: 0-5
     
         # Normalize image if requested
         if self.normalize:

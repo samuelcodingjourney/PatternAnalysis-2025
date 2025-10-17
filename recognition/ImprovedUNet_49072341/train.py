@@ -17,7 +17,7 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
     """
     model.train()
     running_loss = 0.0
-    dice_scores_per_class = [[] for _ in range(4)]
+    dice_scores_per_class = [[] for _ in range(6)]
     
     pbar = tqdm(train_loader, desc='Training')
     for images, masks in pbar:
@@ -38,7 +38,7 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
         
         # Calculate dice scores
         with torch.no_grad():
-            dice_scores = dice_coefficient(outputs, masks, num_classes=4)
+            dice_scores = dice_coefficient(outputs, masks, num_classes=6)
             for i, score in enumerate(dice_scores):
                 dice_scores_per_class[i].append(score)
         
@@ -60,7 +60,7 @@ def validate(model, val_loader, criterion, device):
     """
     model.eval()
     running_loss = 0.0
-    dice_scores_per_class = [[] for _ in range(4)]
+    dice_scores_per_class = [[] for _ in range(6)]
     
     with torch.no_grad():
         pbar = tqdm(val_loader, desc='Validation')
@@ -76,7 +76,7 @@ def validate(model, val_loader, criterion, device):
             running_loss += loss.item()
             
             # Calculate dice scores
-            dice_scores = dice_coefficient(outputs, masks, num_classes=4)
+            dice_scores = dice_coefficient(outputs, masks, num_classes=6)
             for i, score in enumerate(dice_scores):
                 dice_scores_per_class[i].append(score)
             
@@ -108,16 +108,15 @@ def plot_metrics(train_losses, val_losses, train_dice, val_dice, save_path='trai
     axes[0].legend()
     axes[0].grid(True)
     
-    # Plot Dice scores for prostate (class 3)
-    train_dice_prostate = [dice[3] for dice in train_dice]
-    val_dice_prostate = [dice[3] for dice in val_dice]
-    
-    axes[1].plot(epochs, train_dice_prostate, 'b-', label='Train Dice (Prostate)')
-    axes[1].plot(epochs, val_dice_prostate, 'r-', label='Val Dice (Prostate)')
+    # Plot MINIMUM dice across ALL classes (0-5)
+    train_dice_min = [min(dice) for dice in train_dice]
+    val_dice_min = [min(dice) for dice in val_dice]
+    axes[1].plot(epochs, train_dice_min, 'b-', label='Train Dice (Min)')
+    axes[1].plot(epochs, val_dice_min, 'r-', label='Val Dice (Min)')
     axes[1].axhline(y=0.75, color='g', linestyle='--', label='Target (0.75)')
     axes[1].set_xlabel('Epoch')
     axes[1].set_ylabel('Dice Score')
-    axes[1].set_title('Dice Score for Prostate (Class 3)')
+    axes[1].set_title('Minimum Dice Score (All 6 Classes)')
     axes[1].legend()
     axes[1].grid(True)
     
@@ -149,7 +148,7 @@ def train_model(data_path, num_epochs=100, batch_size=8, learning_rate=1e-4,
     
     # Initialize model
     print("Initializing model...")
-    model = ImprovedUNet(in_channels=1, num_classes=4, base_features=32)
+    model = ImprovedUNet(in_channels=1, num_classes=6, base_features=32)
     model = model.to(device)
     
     # Count parameters
@@ -185,8 +184,9 @@ def train_model(data_path, num_epochs=100, batch_size=8, learning_rate=1e-4,
         # Validate
         val_loss, val_dice = validate(model, val_loader, criterion, device)
         
+        min_dice = min(val_dice)
         # Update learning rate
-        scheduler.step(val_dice[3])  # Use prostate dice for scheduling
+        scheduler.step(min_dice)
         
         # Save history
         train_losses.append(train_loss)
@@ -197,14 +197,17 @@ def train_model(data_path, num_epochs=100, batch_size=8, learning_rate=1e-4,
         # Print epoch summary
         print(f"\nTrain Loss: {train_loss:.4f}")
         print(f"Val Loss: {val_loss:.4f}")
-        print(f"Train Dice - Background: {train_dice[0]:.4f}, Class1: {train_dice[1]:.4f}, "
-              f"Class2: {train_dice[2]:.4f}, Prostate: {train_dice[3]:.4f}")
-        print(f"Val Dice - Background: {val_dice[0]:.4f}, Class1: {val_dice[1]:.4f}, "
-              f"Class2: {val_dice[2]:.4f}, Prostate: {val_dice[3]:.4f}")
+        print(f"Train Dice - C0: {train_dice[0]:.4f}, C1: {train_dice[1]:.4f}, "
+              f"C2: {train_dice[2]:.4f}, C3: {train_dice[3]:.4f}, "
+              f"C4: {train_dice[4]:.4f}, C5: {train_dice[5]:.4f}")
+        print(f"Val Dice - C0: {val_dice[0]:.4f}, C1: {val_dice[1]:.4f}, "
+              f"C2: {val_dice[2]:.4f}, C3: {val_dice[3]:.4f}, "
+              f"C4: {val_dice[4]:.4f}, C5: {val_dice[5]:.4f}")
         
         # Save best model
-        if val_dice[3] > best_val_dice:
-            best_val_dice = val_dice[3]
+        min_val_dice = min(val_dice)
+        if min_val_dice > best_val_dice:
+            best_val_dice = min_val_dice
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -212,7 +215,7 @@ def train_model(data_path, num_epochs=100, batch_size=8, learning_rate=1e-4,
                 'val_dice': val_dice,
                 'val_loss': val_loss,
             }, os.path.join(save_dir, 'best_model.pth'))
-            print(f"✓ Saved best model with prostate Dice: {best_val_dice:.4f}")
+            print(f"Saved best model with min Dice (all classes): {best_val_dice:.4f}")
         
         # Save checkpoint every 10 epochs
         if epoch % 10 == 0:
@@ -229,7 +232,7 @@ def train_model(data_path, num_epochs=100, batch_size=8, learning_rate=1e-4,
                  save_path=os.path.join(save_dir, 'training_metrics.png'))
     
     print(f"\nTraining completed!")
-    print(f"Best validation Prostate Dice: {best_val_dice:.4f}")
+    print(f"Best validation min Dice (all classes): {best_val_dice:.4f}")
     
     return model, train_losses, val_losses, train_dice_history, val_dice_history
 
