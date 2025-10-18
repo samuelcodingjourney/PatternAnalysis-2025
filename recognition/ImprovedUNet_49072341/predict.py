@@ -63,7 +63,7 @@ def evaluate_test_set(model, test_loader, device):
 
 def visualize_predictions(model, test_loader, device, num_samples=5, save_path='predictions.png'):
     """
-    Visualize predictions on test samples.
+    Visualize predictions on test samples with clarity.
     """
     model.eval()
     
@@ -90,23 +90,24 @@ def visualize_predictions(model, test_loader, device, num_samples=5, save_path='
     masks_all = torch.cat(masks_list, dim=0)[:num_samples]
     preds_all = torch.cat(preds_list, dim=0)[:num_samples]
     
-    # Plot
-    fig, axes = plt.subplots(num_samples, 3, figsize=(12, 4*num_samples))
+    # Colors and layout
+    fig, axes = plt.subplots(num_samples, 3, figsize=(15, 5*num_samples))
     
+    # Color choices
     class_colors = {
-        0: [0, 0, 0],        # Class 0 - Black
-        1: [1, 0, 0],        # Class 1 - Red
-        2: [0, 1, 0],        # Class 2 - Green
-        3: [0, 1, 1],        # Class 3 - Cyan
-        4: [1, 1, 0],        # Class 4 - Yellow
-        5: [0, 0, 1],        # Class 5 - Blue
+        0: [0, 0, 0],           # Class 0 - Black
+        1: [0.9, 0.1, 0.1],     # Class 1 - Bright Red
+        2: [0.2, 0.9, 0.2],     # Class 2 - Bright Green
+        3: [0.1, 0.9, 0.9],     # Class 3 - Bright Cyan
+        4: [1.0, 0.5, 0.0],     # Class 4 - Orange (more visible!)
+        5: [0.3, 0.3, 1.0],     # Class 5 - Bright Blue
     }
     
     for i in range(num_samples):
         # Image
         img = images_all[i, 0].numpy()
         axes[i, 0].imshow(img, cmap='gray')
-        axes[i, 0].set_title('Input Image')
+        axes[i, 0].set_title('Input MRI Image', fontsize=14, fontweight='bold')
         axes[i, 0].axis('off')
         
         # Ground truth
@@ -115,7 +116,7 @@ def visualize_predictions(model, test_loader, device, num_samples=5, save_path='
         for class_idx, color in class_colors.items():
             mask_colored[mask == class_idx] = color
         axes[i, 1].imshow(mask_colored)
-        axes[i, 1].set_title('Ground Truth')
+        axes[i, 1].set_title('Ground Truth Segmentation', fontsize=14, fontweight='bold')
         axes[i, 1].axis('off')
         
         # Prediction
@@ -124,11 +125,23 @@ def visualize_predictions(model, test_loader, device, num_samples=5, save_path='
         for class_idx, color in class_colors.items():
             pred_colored[pred == class_idx] = color
         axes[i, 2].imshow(pred_colored)
-        axes[i, 2].set_title('Prediction')
+        axes[i, 2].set_title('Model Prediction', fontsize=14, fontweight='bold')
         axes[i, 2].axis('off')
     
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    
+    legend_elements = [
+        plt.Rectangle((0,0),1,1, facecolor=class_colors[0], edgecolor='white', label='Class 0'),
+        plt.Rectangle((0,0),1,1, facecolor=class_colors[1], edgecolor='white', label='Class 1'),
+        plt.Rectangle((0,0),1,1, facecolor=class_colors[2], edgecolor='white', label='Class 2'),
+        plt.Rectangle((0,0),1,1, facecolor=class_colors[3], edgecolor='white', label='Class 3'),
+        plt.Rectangle((0,0),1,1, facecolor=class_colors[4], edgecolor='white', label='Class 4'),
+        plt.Rectangle((0,0),1,1, facecolor=class_colors[5], edgecolor='white', label='Class 5'),
+    ]
+    fig.legend(handles=legend_elements, loc='lower center', ncol=6, 
+               fontsize=12, frameon=True, fancybox=True)
+    
+    plt.tight_layout(rect=[0, 0.02, 1, 1])  # Make room for legend
+    plt.savefig(save_path, dpi=200, bbox_inches='tight', facecolor='white')
     plt.close()
     print(f"Visualization saved to {save_path}")
 
