@@ -186,3 +186,4 @@ All 6 anatomical classes (0-5) are preserved during training without label remap
 ## Author
 
 Name: Gregorius Samuel Hutahaean (49072341)
+Note: Student ID Github username under commits were because of pushing the commits to the remote repo from Rangpur cluster local repo.
